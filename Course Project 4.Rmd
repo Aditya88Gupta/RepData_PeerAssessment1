@@ -1,0 +1,154 @@
+# Reproducible Research Course Project 
+
+In this Project we'll be exploring the data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day. 
+
+### Loading Library
+
+Here we'll be importing all the libraries that we would use
+
+```{r echo=TRUE,results='hide'}
+library(ggplot2)
+library(dplyr)
+#library(tidyr)
+library(lubridate)
+```
+
+### Downloading and Reading Data
+
+In this section we will download and load the data
+
+```{r,echo=TRUE}
+desktop<- "C:/Users/Aditya Gupta/Desktop"
+setwd(desktop)
+fileUrl<- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+
+if(!file.exists("./CourseData")){
+        dir.create("./CourseData")
+        download.file(fileUrl,destfile="./CourseData/Dataset.zip")
+        unzip("./CourseData/Dataset.zip",exdir="./CourseData")
+  
+}
+
+Data<- read.csv("./CourseData/activity.csv")
+head(Data)
+```
+
+### Histogram of total number of steps per day
+
+In this section we'll be taking a look at the histogram of the total number of steps taken each day
+
+```{r, echo=TRUE}
+StepsPerDay <- tapply(Data$steps,Data$date,sum,na.rm=TRUE)
+#hist(StepsPerDay,col = "steelblue1",breaks = 15)
+#hist(StepsPerDay,col = "steelblue1",breaks = 20)
+hist(StepsPerDay,col = "steelblue1",breaks = 12)
+```
+
+
+The mean and median of StepsPerDay is not clear from the histogram, so let's calculate them separately
+
+```{r, echo=TRUE}
+MeanSteps <- mean(StepsPerDay)
+MedianSteps <- median(StepsPerDay)
+cbind(MeanSteps,MedianSteps)
+
+```
+
+### Time Series Plot
+
+Let's take a look at the Time series plot of the avg number steps taken 
+
+```{r,echo=TRUE}
+AvgSteps <- tapply(Data$steps,Data$interval,mean,na.rm=TRUE)
+TimeInterval <- rownames(AvgSteps)
+plot(y = AvgSteps, x= TimeInterval,type="l",xlab= "5-min interval",col="steelblue1")
+title(main="Time series plot of the average number of steps taken")
+
+```
+
+We see that the max number of steps is some where around 900th 5-min interval, Let's find out exactly
+which 5-min interval corresponds to the max number of steps
+
+```{r,echo=TRUE}
+AvgSteps[(which.max(AvgSteps))]
+
+```
+
+### Dealing with missing data
+
+Let's check the data set for missing value
+
+```{r,echo=TRUE}
+sum(is.na(Data))
+mean(is.na(Data))
+
+```
+
+We see that there are around 2300 missing values in our data, so we'll be imputing these with 
+the mean for that 5-minute interval
+
+```{r,echo=TRUE}
+df = data.frame(Data)
+
+for (i in 1:nrow(df)){
+       
+       if(is.na(df[i,"steps"])){
+             
+          df[i,"steps"] <- as.integer(AvgSteps[as.character(df[i,"interval"])]) 
+       }
+     
+}
+head(df)
+
+```
+
+Now, let's take a look at the histogram for StepsPerDay again
+
+```{r,echo = TRUE}
+StepsPerDay2 <- tapply(df$steps,df$date,sum)
+hist(StepsPerDay2,col = "steelblue1",breaks = 12,
+     main="StepsPerDay after imputing missing data")
+```
+
+Again, let's see the mean and median for StepsPerDay 
+
+```{r,echo=TRUE}
+MeanSteps2 <- mean(StepsPerDay2)
+MedianSteps2 <- median(StepsPerDay2)
+cbind(MeanSteps2,MedianSteps2)
+
+```
+
+### Difference in activity patterns between weekdays and weekends
+
+Let's see if there are any differences in activity patterns between weekdays and weekends
+
+```{r,echo=TRUE}
+df <- transform(df,date = ymd(date))
+df["Day"] <- wday(df$date)
+for (i in 1:nrow(df)){
+  
+  if((df[i,"Day"] == 1 | df[i,"Day"]==7)){
+    
+    df[i,"Day"] <- "weekend" 
+  }
+  else
+    
+    df[i,"Day"] <- "weekday"
+  
+}
+
+AvgSteps2 <- with(df,tapply(steps,list(Day,interval),mean))
+TimeInterval <- colnames(AvgSteps2)
+par(mfrow=c(1,2),mar = c(4,2,1,2))
+Upper <- max(AvgSteps2) 
+plot(y = AvgSteps2["weekday",], x= TimeInterval,type="l",xlab= "5-min interval",
+     ,main="AvgSteps on Weekdays",col="steelblue1")
+plot(y = AvgSteps2["weekend",], x= TimeInterval,type="l",xlab= "5-min interval",
+     ,main="AvgSteps on Weekend",col = "steelblue1",ylim=c(0,Upper))
+
+```
+
+
+
+
